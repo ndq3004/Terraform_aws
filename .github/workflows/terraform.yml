@@ -46,8 +46,15 @@ name: 'Terraform'
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - dev
+      - staging
+      - prod
   pull_request:
+    branches:
+      - dev
+      - staging
+      - prod
 
 permissions:
   contents: read
@@ -56,7 +63,10 @@ jobs:
   terraform:
     name: 'Terraform'
     runs-on: ubuntu-latest
-    environment: main
+    environment: ${{ github.head_ref || github.ref_name }}
+
+    env:
+      ENV_NAME: ${{ github.head_ref || github.ref_name }} 
 
     # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
     defaults:
@@ -91,10 +101,14 @@ jobs:
 
     # Generates an execution plan for Terraform
     - name: Terraform Plan
-      run: terraform plan -var-file="infra-env-settings/dev.tfvars"
+      env:
+        ami: ${{ vars.TF_VAR_EC2_AMI_ID }}
+      run: terraform plan -var-file="infra-env-settings/${ENV_NAME}.tfvars" -var="ami=$ami"
 
       # On push to "main", build or change infrastructure according to Terraform configuration files
       # Note: It is recommended to set up a required "strict" status check in your repository for "Terraform Cloud". See the documentation on "strict" required status checks for more information: https://help.github.com/en/github/administering-a-repository/types-of-required-status-checks
     - name: Terraform Apply
+      env:
+        ami: ${{ vars.TF_VAR_EC2_AMI_ID }}
       # if: github.ref == 'refs/heads/"main"' && github.event_name == 'push'
-      run: terraform apply -auto-approve -var-file="infra-env-settings/dev.tfvars"
+      run: terraform apply -auto-approve -var-file="infra-env-settings/${ENV_NAME}.tfvars" -var="ami=$ami"
